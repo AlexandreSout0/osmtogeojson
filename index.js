@@ -641,7 +641,7 @@ osmtogeojson = function( data, options, featureCallback ) {
               role: m.role,
               way: way,
               nodes: way.nodes.filter(function(n) {
-                if (n !== undefined)
+                if (n !== undefined && isValidCoordinate(n.lat, n.lon))
                   return true;
                 is_tainted = true;
                 if (options.verbose) console.warn('Route', rel.type+'/'+rel.id,  'tainted by a way', m.type+'/'+m.ref, 'with a missing node');
@@ -762,7 +762,7 @@ osmtogeojson = function( data, options, featureCallback ) {
               role: m.role || "outer",
               way: way,
               nodes: way.nodes.filter(function(n) {
-                if (n !== undefined)
+                if (n !== undefined && isValidCoordinate(n.lat, n.lon))
                   return true;
                 is_tainted = true;
                 if (options.verbose) console.warn('Multipolygon', mp_geometry+'/'+mp_id,  'tainted by a way', m.type+'/'+m.ref, 'with a missing node');
@@ -770,7 +770,9 @@ osmtogeojson = function( data, options, featureCallback ) {
               })
             };
           });
-          members = _.compact(members);
+          members = _.compact(members).filter(function(m) {
+            return m.nodes.length;
+          });
           // construct outer and inner rings
           var outers, inners;
           outers = join(members.filter(function(m) {return m.role==="outer";}));
@@ -902,14 +904,15 @@ osmtogeojson = function( data, options, featureCallback ) {
       ways[i].tainted = false;
       ways[i].hidden = false;
       var coords = new Array();
-      for (j=0;j<ways[i].nodes.length;j++) {
-        if (typeof ways[i].nodes[j] == "object")
-          coords.push([+ways[i].nodes[j].lon, +ways[i].nodes[j].lat]);
-        else {
-          if (options.verbose) console.warn('Way',ways[i].type+'/'+ways[i].id,'is tainted by an invalid node');
-          ways[i].tainted = true;
-        }
-      }
+for (j = 0; j < ways[i].nodes.length; j++) {
+  const node = ways[i].nodes[j];
+  if (typeof node === "object" && isValidCoordinate(node.lat, node.lon)) {
+    coords.push([+node.lon, +node.lat]);
+  } else {
+    if (options.verbose) console.warn('Way', ways[i].type + '/' + ways[i].id, 'is tainted by an invalid node');
+    ways[i].tainted = true;
+  }
+}
       if (coords.length <= 1) { // invalid way geometry
         if (options.verbose) console.warn('Way',ways[i].type+'/'+ways[i].id,'ignored because it contains too few nodes');
         continue;
@@ -1057,6 +1060,19 @@ function join(ways) {
     }
   }
   return joined;
+}
+
+function isValidCoordinate(lat, lon) {
+  const parsedLat = parseFloat(lat);
+  const parsedLon = parseFloat(lon);
+
+  const isLatDefined = parsedLat !== undefined && !isNaN(parsedLat);
+  const isLonDefined = parsedLon !== undefined && !isNaN(parsedLon);
+  
+  const isLatNotZero = parsedLat !== 0.0;
+  const isLonNotZero = parsedLon !== 0.0;
+
+  return isLatDefined && isLonDefined && isLatNotZero && isLonNotZero;
 }
 
 // for backwards compatibility
