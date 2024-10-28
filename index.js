@@ -649,7 +649,9 @@ osmtogeojson = function( data, options, featureCallback ) {
               })
             };
           });
-          members = _.compact(members);
+          members = _.compact(members).filter(function(m) {
+            return m.nodes.length;
+          });
           // construct connected linestrings
           var linestrings;
           linestrings = join(members);
@@ -904,15 +906,21 @@ osmtogeojson = function( data, options, featureCallback ) {
       ways[i].tainted = false;
       ways[i].hidden = false;
       var coords = new Array();
-for (j = 0; j < ways[i].nodes.length; j++) {
-  const node = ways[i].nodes[j];
-  if (typeof node === "object" && isValidCoordinate(node.lat, node.lon)) {
-    coords.push([+node.lon, +node.lat]);
-  } else {
-    if (options.verbose) console.warn('Way', ways[i].type + '/' + ways[i].id, 'is tainted by an invalid node');
-    ways[i].tainted = true;
-  }
-}
+      for (j = 0; j < ways[i].nodes.length; j++) {
+        const node = ways[i].nodes[j];
+        
+        if (typeof node === "object" && typeof node.lon !== "undefined" && typeof node.lat !== "undefined") {
+          if (isValidCoordinate(node.lat, node.lon)) {
+            coords.push([+node.lon, +node.lat]);
+          } else {
+            if (options.verbose) console.warn('Way', ways[i].type + '/' + ways[i].id, 'has an invalid coordinate');
+            ways[i].tainted = true;
+          }
+        } else {
+          if (options.verbose) console.warn('Way', ways[i].type + '/' + ways[i].id, 'is tainted by an invalid node');
+          ways[i].tainted = true;
+        }
+      }
       if (coords.length <= 1) { // invalid way geometry
         if (options.verbose) console.warn('Way',ways[i].type+'/'+ways[i].id,'ignored because it contains too few nodes');
         continue;
@@ -1066,13 +1074,12 @@ function isValidCoordinate(lat, lon) {
   const parsedLat = parseFloat(lat);
   const parsedLon = parseFloat(lon);
 
-  const isLatDefined = parsedLat !== undefined && !isNaN(parsedLat);
-  const isLonDefined = parsedLon !== undefined && !isNaN(parsedLon);
-  
-  const isLatNotZero = parsedLat !== 0.0;
-  const isLonNotZero = parsedLon !== 0.0;
+  const isLatValid = !isNaN(parsedLat) && parsedLat >= -90 && parsedLat <= 90;
+  const isLonValid = !isNaN(parsedLon) && parsedLon >= -180 && parsedLon <= 180;
 
-  return isLatDefined && isLonDefined && isLatNotZero && isLonNotZero;
+  const isNotZero = !(parsedLat === 0 && parsedLon === 0);
+
+  return isLatValid && isLonValid && isNotZero;
 }
 
 // for backwards compatibility

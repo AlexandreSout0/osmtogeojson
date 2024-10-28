@@ -29,6 +29,7 @@
   "dependencies": {
     "@mapbox/geojson-rewind": "0.5.2",
     "@xmldom/xmldom": "0.8.3",
+    "browserify": "^17.0.1",
     "concat-stream": "2.0.0",
     "geojson-numeric": "0.2.1",
     "htmlparser2": "3.5.1",
